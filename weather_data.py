@@ -1,7 +1,8 @@
-import os, sys, time, json, urllib3, requests
+import os, json, urllib3, requests
 
 urllib3.disable_warnings()
 
+import datetime
 import numpy as np
 import pandas as pd
 import seaborn as sns
@@ -253,22 +254,27 @@ def DrawLollipopPlot(*arrays):
 
 
 #Вывод данных в файл
-def save_csv(points):
+def save_csv(points, start_date, end_date):
     for point in points:
-        with open(f'D:/weather/{point}.txt', 'w') as file:
+        with open(os.path.join(folder_path, f"{point}.txt"), 'w') as file:
             json.dump(json_data,file, indent=4)
 
             # создаем пустой DataFrame
             df = pd.DataFrame(columns=['date', 'QV2M', 'T2M', 'WS10M', 'ALLSKY_KT', 'ALLSKY_SFC_SW_DWN'])
 
-            # заполняем DataFrame данными из JSON
+            # создаем пустой DataFrame
             for date in json_data['properties']['parameter']['QV2M']:
-                qv2m = json_data['properties']['parameter']['QV2M'][date]
-                t2m = json_data['properties']['parameter']['T2M'][date]
-                ws10m = json_data['properties']['parameter']['WS10M'][date]
-                allsky_kt = json_data['properties']['parameter']['ALLSKY_KT'][date]
-                allsky_sfc_sw_dwn = json_data['properties']['parameter']['ALLSKY_SFC_SW_DWN'][date]
-                df = df.append({'date': date, 'QV2M': qv2m, 'T2M': t2m, 'WS10M': ws10m, 'ALLSKY_KT': allsky_kt, 'ALLSKY_SFC_SW_DWN': allsky_sfc_sw_dwn}, ignore_index=True)
+                # проверяем, что дата входит в заданный временной диапазон
+                if start_date <= date <= end_date:
+                    # преобразуем строку даты в формат datetime и добавляем разделители
+                    date_formatted = datetime.datetime.strptime(date, '%Y%m%d').strftime('%Y.%m.%d')
+                    qv2m = json_data['properties']['parameter']['QV2M'][date]
+                    t2m = json_data['properties']['parameter']['T2M'][date]
+                    ws10m = json_data['properties']['parameter']['WS10M'][date]
+                    allsky_kt = json_data['properties']['parameter']['ALLSKY_KT'][date]
+                    allsky_sfc_sw_dwn = json_data['properties']['parameter']['ALLSKY_SFC_SW_DWN'][date]
+                    df = df.append({'date': date_formatted, 'QV2M': qv2m, 'T2M': t2m, 'WS10M': ws10m, 'ALLSKY_KT': allsky_kt, 'ALLSKY_SFC_SW_DWN': allsky_sfc_sw_dwn}, ignore_index=True)
+
 
             # сохраняем DataFrame в CSV файл
             df.to_csv(f'{point}.csv', index=False)
@@ -284,7 +290,7 @@ if __name__ == '__main__':
     endPoint = (42.357, 54.196)
     #endPoint = (54.196, 42.357)
     
-
+    folder_path = os.path.dirname(os.path.abspath(__file__))
     # Конфигурация массива заданного кол-ва точек от стартовой до конечной
     points = ConfiguratePath(startPoint, endPoint)
 
@@ -316,4 +322,4 @@ if __name__ == '__main__':
 
     # Выходные данные - 
     json_data = Downloading(inputData)
-    json_tables = save_csv(points)
+    json_tables = save_csv(points,date[0], date[1])
