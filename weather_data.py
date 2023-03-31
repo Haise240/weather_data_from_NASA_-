@@ -261,8 +261,7 @@ def save_csv(points, start_date, end_date):
 
             # создаем пустой DataFrame
             df = pd.DataFrame(columns=['date', 'QV2M', 'T2M', 'WS10M', 'ALLSKY_KT', 'ALLSKY_SFC_SW_DWN'])
-
-            # создаем пустой DataFrame
+            
             for date in json_data['properties']['parameter']['QV2M']:
                 # проверяем, что дата входит в заданный временной диапазон
                 if start_date <= date <= end_date:
