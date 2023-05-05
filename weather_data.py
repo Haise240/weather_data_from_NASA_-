@@ -56,26 +56,45 @@ def Date2NasaFormat(date):
     endDate = "".join(endDateList)
     return startDate, endDate
     
-def Downloading(inputData):
-
+def Downloading(inputData,points):
     startDate = inputData.startDate
     endDate = inputData.endDate
-    #longitude = inputData.startPoint
-    #latitude = inputData.endPoint
     parameters = inputData.parameters
+    folder_path = os.getcwd()
 
     outputData = {}
 
-    print(inputData.points)
-
-    for longitude, latitude in inputData.points:
-        print(longitude)
-        # query_url = r"https://power.larc.nasa.gov/cgi-bin/v1/DataAccess.py?request=execute&identifier=SinglePoint&tempAverage=DAILY&parameters={parameters}&startDate={startDate}&endDate={endDate}&lat={latitude}&lon={longitude}&outputList=JSON&userCommunity=SSE"     
-        query_url = r"https://power.larc.nasa.gov/api/temporal/daily/point?parameters={parameters}&community=RE&longitude={longitude}&latitude={latitude}&start={startDate}&end={endDate}&format=JSON"     
+    for longitude, latitude in points:
+        query_url = r"https://power.larc.nasa.gov/api/temporal/daily/point?parameters={parameters}&community=RE&longitude={longitude}&latitude={latitude}&start={startDate}&end={endDate}&format=JSON"
         query_url = query_url.format(longitude=longitude, latitude=latitude, startDate=startDate, endDate=endDate, parameters=parameters)
         main_response = requests.get(url=query_url, verify=False)
-        json_response = json.loads(main_response.text)
-        return json_response
+
+        if main_response.status_code == 404:
+            print(f"Error retrieving data for point ({latitude}, {longitude}): {main_response.status_code}")
+            continue
+
+        try:
+            json_data = json.loads(main_response.text)
+        except json.decoder.JSONDecodeError:
+            print(f"Error decoding JSON for point ({latitude}, {longitude})")
+            continue
+
+        with open(os.path.join(folder_path, f"{latitude}_{longitude}.txt"), 'w') as file:
+            json.dump(json_data, file, indent=4)
+
+        df = pd.DataFrame(columns=['date', 'QV2M', 'T2M', 'WS10M', 'ALLSKY_KT', 'ALLSKY_SFC_SW_DWN'])
+
+        for date in json_data['properties']['parameter']['QV2M']:
+            if startDate <= date <= endDate:
+                date_formatted = datetime.datetime.strptime(date, '%Y%m%d').strftime('%Y.%m.%d')
+                qv2m = json_data['properties']['parameter']['QV2M'][date]
+                t2m = json_data['properties']['parameter']['T2M'][date]
+                ws10m = json_data['properties']['parameter']['WS10M'][date]
+                allsky_kt = json_data['properties']['parameter']['ALLSKY_KT'][date]
+                allsky_sfc_sw_dwn = json_data['properties']['parameter']['ALLSKY_SFC_SW_DWN'][date]
+                df = df.append({'date': date_formatted, 'QV2M': qv2m, 'T2M': t2m, 'WS10M': ws10m, 'ALLSKY_KT': allsky_kt, 'ALLSKY_SFC_SW_DWN': allsky_sfc_sw_dwn}, ignore_index=True)
+
+        df.to_csv(os.path.join(folder_path, f"{latitude}_{longitude}.csv"), index=False)
 
 
     
@@ -253,32 +272,6 @@ def DrawLollipopPlot(*arrays):
 
 
 
-#Вывод данных в файл
-def save_csv(points, start_date, end_date):
-    for point in points:
-        with open(os.path.join(folder_path, f"{point}.txt"), 'w') as file:
-            json.dump(json_data,file, indent=4)
-
-            # создаем пустой DataFrame
-            df = pd.DataFrame(columns=['date', 'QV2M', 'T2M', 'WS10M', 'ALLSKY_KT', 'ALLSKY_SFC_SW_DWN'])
-            
-            for date in json_data['properties']['parameter']['QV2M']:
-                # проверяем, что дата входит в заданный временной диапазон
-                if start_date <= date <= end_date:
-                    # преобразуем строку даты в формат datetime и добавляем разделители
-                    date_formatted = datetime.datetime.strptime(date, '%Y%m%d').strftime('%Y.%m.%d')
-                    qv2m = json_data['properties']['parameter']['QV2M'][date]
-                    t2m = json_data['properties']['parameter']['T2M'][date]
-                    ws10m = json_data['properties']['parameter']['WS10M'][date]
-                    allsky_kt = json_data['properties']['parameter']['ALLSKY_KT'][date]
-                    allsky_sfc_sw_dwn = json_data['properties']['parameter']['ALLSKY_SFC_SW_DWN'][date]
-                    df = df.append({'date': date_formatted, 'QV2M': qv2m, 'T2M': t2m, 'WS10M': ws10m, 'ALLSKY_KT': allsky_kt, 'ALLSKY_SFC_SW_DWN': allsky_sfc_sw_dwn}, ignore_index=True)
-
-
-            # сохраняем DataFrame в CSV файл
-            df.to_csv(f'{point}.csv', index=False)
-
-
 # используй функцию криэйт тейбл для создания таблицы через какую-нибудь библиотеку 
 
 if __name__ == '__main__':
@@ -320,5 +313,4 @@ if __name__ == '__main__':
     print("startPoint:", inputData.points[0], "endPoint: ", inputData.points[-1])
 
     # Выходные данные - 
-    json_data = Downloading(inputData)
-    json_tables = save_csv(points,date[0], date[1])
+    json_data = Downloading(inputData,points)
