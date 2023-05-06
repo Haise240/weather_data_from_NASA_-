@@ -1,4 +1,4 @@
-import os, json, urllib3, requests
+import os, sys, time, json, urllib3, requests
 
 urllib3.disable_warnings()
 
@@ -11,7 +11,7 @@ from matplotlib.gridspec import GridSpec
 from matplotlib import colors
 from collections import defaultdict
 
-DEFAULT_NUMBER_OF_POINTS = 10
+DEFAULT_NUMBER_OF_POINTS = 4
 
 class InputData():
     def __init__(self, date, points, parameters, count=DEFAULT_NUMBER_OF_POINTS):
@@ -24,6 +24,8 @@ class InputData():
         self.parameters = parameters
         # Кол-во точек
         self.count = count
+
+
 
 def ConfiguratePath(startPoint, endPoint, count=DEFAULT_NUMBER_OF_POINTS):
     outputPath = []
@@ -56,11 +58,13 @@ def Date2NasaFormat(date):
     endDate = "".join(endDateList)
     return startDate, endDate
     
+
 def Downloading(inputData,points):
     startDate = inputData.startDate
     endDate = inputData.endDate
     parameters = inputData.parameters
-    folder_path = os.getcwd()
+    folder_path = os.path.join(os.getcwd(), f"{startPoint}_{endPoint}")
+    os.makedirs(folder_path, exist_ok=True)
 
     outputData = {}
 
@@ -95,11 +99,9 @@ def Downloading(inputData,points):
                 df = df.append({'date': date_formatted, 'QV2M': qv2m, 'T2M': t2m, 'WS10M': ws10m, 'ALLSKY_KT': allsky_kt, 'ALLSKY_SFC_SW_DWN': allsky_sfc_sw_dwn}, ignore_index=True)
 
         df.to_csv(os.path.join(folder_path, f"{latitude}_{longitude}.csv"), index=False)
+        print(f'{longitude},{latitude} закончен')
 
 
-    
-
-# Возвращает массив суммы значений одного из параметров по каждой точке
 def GetSumFromPoints(data, parameter):
 
     outputSum = defaultdict(list)
@@ -118,7 +120,7 @@ def GetSumFromPoints(data, parameter):
 
     return outputSum
 
-# Возвращает массив средних значений одного из параметров по каждой точке
+
 def GetMeanFromPoints(data, parameter):
     #outputSum = []
     #outputSum = {}
@@ -140,6 +142,7 @@ def GetMeanFromPoints(data, parameter):
 
     return outputSum
 
+
 def DrawPlotFromData(data, point, parameters):
     point = str(float(point[0])) + "," + str(float(point[1]))
     if point != "date":
@@ -153,6 +156,7 @@ def DrawPlotFromData(data, point, parameters):
         ax.legend(loc = 'right')
             
     return fig
+
 
 def DrawMarginalDensity(data, point, parameters):
 
@@ -173,6 +177,7 @@ def DrawMarginalDensity(data, point, parameters):
     plt.suptitle("Point: " + str(point.split(',')[1]) + ", " + str(point.split(',')[0]), y=1)
 
     return fig
+
 
 def DrawMarginalHistogram(data, point, parameters):
 
@@ -223,6 +228,7 @@ def DrawMarginalHistogram(data, point, parameters):
 
     return fig
 
+
 def DrawPointPlot(*arrays):
     fig = plt.figure()
     plot_num = len(arrays)*100 + 10 + 1 # Расположение графика
@@ -239,6 +245,7 @@ def DrawPointPlot(*arrays):
 
         plot_num += 1
     return fig
+
 
 def DrawLollipopPlot(*arrays):
     fig = plt.figure()
@@ -271,46 +278,43 @@ def DrawLollipopPlot(*arrays):
     return fig
 
 
-
-# используй функцию криэйт тейбл для создания таблицы через какую-нибудь библиотеку 
-
 if __name__ == '__main__':
 
+
     # Координаты отрезка
-    startPoint = (50.551, 55.719)
-    #startPoint = (55.719, 50.551)
-    endPoint = (42.357, 54.196)
-    #endPoint = (54.196, 42.357)
-    
+    start = [(44.52, 43.72)]
+    end = [(44.38, 42.82)]
     folder_path = os.path.dirname(os.path.abspath(__file__))
-    # Конфигурация массива заданного кол-ва точек от стартовой до конечной
-    points = ConfiguratePath(startPoint, endPoint)
 
-    # Установка и форматирование даты
-    date = ["01.01.2018", "31.12.2020"]
-    date = Date2NasaFormat(date)
-    outputPath = ConfiguratePath(startPoint, endPoint, count=DEFAULT_NUMBER_OF_POINTS)
+    for i, startPoint in enumerate(start):
+        endPoint = end[i]
 
-    # Все параметры, которые необходимо скачать
-    # QV2M  - Specific Humidity at 2 Meters - The ratio of the mass of water vapor to the total mass of air at 2 meters (g water/kg total air).
-    # T2M   - Temperature at 2 Meters       - The average air (dry bulb) temperature at 2 meters above the surface of the earth
-    # WS10M - Wind Speed at 10 Meters       - The average of wind speed at 10 meters above the surface of the earth
-    # ALLSKY_KT - All Sky Insolation Clearness Index - A fraction representing clearness of the atmosphere; the all sky insolation that is transmitted through the atmosphere to strike the surface of the earth divided by the average of top of the atmosphere total solar irradiance incident.
-    # ALLSKY_SFC_SW_DWN - All Sky Surface Shortwave Downward Irradiance - The total solar irradiance incident (direct plus diffuse) on a horizontal plane at the surface of the earth under all sky conditions. An alternative term for the total solar irradiance is the "Global Horizontal Irradiance" or GHI.
+        # Конфигурация массива заданного кол-ва точек от стартовой до конечной
+        points = ConfiguratePath(startPoint, endPoint)
 
-    parameters = "QV2M,T2M,WS10M,ALLSKY_KT,ALLSKY_SFC_SW_DWN"
-    # parameters = "QV2M,T2M,WS10M,ALLSKY_SFC_SW_DWN"
+        # Установка и форматирование даты
+        date = ["01.01.2018", "31.12.2020"]
+        date = Date2NasaFormat(date)
+        outputPath = ConfiguratePath(startPoint, endPoint, count=DEFAULT_NUMBER_OF_POINTS)
 
-    # Входные данные - дата, координаты, извлекаемые параметры
-    inputData = InputData(date, points, parameters)
-    print("startDate:", inputData.startDate, "endDate: ", inputData.endDate)
-    print("startPoint:", inputData.points[0], "endPoint: ", inputData.points[-1])
+        # Все параметры, которые необходимо скачать
+        # QV2M  - Specific Humidity at 2 Meters - The ratio of the mass of water vapor to the total mass of air at 2 meters (g water/kg total air).
+        # T2M   - Temperature at 2 Meters       - The average air (dry bulb) temperature at 2 meters above the surface of the earth
+        # WS10M - Wind Speed at 10 Meters       - The average of wind speed at 10 meters above the surface of the earth
+        # ALLSKY_KT - All Sky Insolation Clearness Index - A fraction representing clearness of the atmosphere; the all sky insolation that is transmitted through the atmosphere to strike the surface of the earth divided by the average of top of the atmosphere total solar irradiance incident.
+        # ALLSKY_SFC_SW_DWN - All Sky Surface Shortwave Downward Irradiance - The total solar irradiance incident (direct plus diffuse) on a horizontal plane at the surface of the earth under all sky conditions. An alternative term for the total solar irradiance is the "Global Horizontal Irradiance" or GHI.
+
+        parameters = "QV2M,T2M,WS10M,ALLSKY_KT,ALLSKY_SFC_SW_DWN"
+        # parameters = "QV2M,T2M,WS10M,ALLSKY_SFC_SW_DWN"
+
+        # Входные данные - дата, координаты, извлекаемые параметры
+        inputData = InputData(date, points, parameters)
+        print("startDate:", inputData.startDate, "endDate: ", inputData.endDate)
+        print("startPoint:", inputData.points[0], "endPoint: ", inputData.points[-1])
     
- 
-    # Входные данные - дата, координаты, извлекаемые параметры
-    inputData = InputData(date, points, parameters)
-    print("startDate:", inputData.startDate, "endDate: ", inputData.endDate)
-    print("startPoint:", inputData.points[0], "endPoint: ", inputData.points[-1])
-
-    # Выходные данные - 
-    json_data = Downloading(inputData,points)
+        # Входные данные - дата, координаты, извлекаемые параметры
+        inputData = InputData(date, points, parameters)
+        print("startDate:", inputData.startDate, "endDate: ", inputData.endDate)
+        print("startPoint:", inputData.points[0], "endPoint: ", inputData.points[-1])
+        # Выходные данные - 
+        json_data = Downloading(inputData,points)
